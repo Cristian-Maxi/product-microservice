@@ -1,7 +1,10 @@
 package microservice.product.services.impl;
 
 import jakarta.persistence.EntityNotFoundException;
+import microservice.product.dtos.OrderItemDTO.OrderItemRequestDTO;
 import microservice.product.dtos.productDTO.*;
+import microservice.product.exceptions.ApplicationException;
+import microservice.product.exceptions.InsufficientStockException;
 import microservice.product.mappers.ProductMapper;
 import microservice.product.models.Product;
 import microservice.product.repositories.ProductRepository;
@@ -9,6 +12,7 @@ import microservice.product.services.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -52,5 +56,26 @@ public class ProductServiceImpl implements ProductService {
     public Set<ProductResponseDTO> getAllProducts() {
         List<Product> productList = productRepository.findAll();
         return productMapper.toResponseSetDTO(productList);
+    }
+
+    @Override
+    public void reserveStock(Set<OrderItemRequestDTO> items) {
+        List<String> unavailableProducts = new ArrayList<>();
+
+        for (OrderItemRequestDTO item : items) {
+            Product product = productRepository.findById(item.productId())
+                    .orElseThrow(() -> new EntityNotFoundException("Producto no encontrado: ID " + item.productId()));
+
+            if (product.getStock() < item.quantity()) {
+                unavailableProducts.add("Producto: " + product.getName() + " (ID: " + item.productId() + ")");
+            } else {
+                product.setStock(product.getStock() - item.quantity());
+                productRepository.save(product);
+            }
+        }
+
+        if (!unavailableProducts.isEmpty()) {
+            throw new InsufficientStockException("Stock insuficiente", unavailableProducts);
+        }
     }
 }

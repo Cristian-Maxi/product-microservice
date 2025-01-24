@@ -2,14 +2,17 @@ package microservice.product.controllers;
 
 import jakarta.validation.Valid;
 import microservice.product.dtos.ApiResponseDTO;
+import microservice.product.dtos.OrderItemDTO.OrderItemRequestDTO;
 import microservice.product.dtos.productDTO.*;
 import microservice.product.exceptions.ApplicationException;
+import microservice.product.exceptions.InsufficientStockException;
 import microservice.product.services.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Set;
 
 @RestController
@@ -47,6 +50,18 @@ public class ProductController {
             }
         } catch (ApplicationException e) {
             throw new ApplicationException(" Ha ocurrido un error " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/reserve-stock")
+    public ResponseEntity<ApiResponseDTO<String>> reserveStock(@RequestBody Set<OrderItemRequestDTO> items) {
+        try {
+            productService.reserveStock(items);
+            return new ResponseEntity<>(new ApiResponseDTO<>(true, "Stock reservado exitosamente", null), HttpStatus.OK);
+        } catch (InsufficientStockException e) {
+            return new ResponseEntity<>(new ApiResponseDTO<>(false, e.getMessage(), e.getUnavailableProducts()), HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return new ResponseEntity<>(new ApiResponseDTO<>(false, "Error al reservar stock: " + e.getMessage(), null), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
