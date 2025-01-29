@@ -1,5 +1,6 @@
 package microservice.product.controllers;
 
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import microservice.product.dtos.ApiResponseDTO;
 import microservice.product.dtos.OrderItemDTO.OrderItemRequestDTO;
@@ -11,7 +12,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/product")
@@ -35,6 +39,13 @@ public class ProductController {
         ProductResponseDTO productResponseDTO = productService.updateProduct(productUpdateDTO);
         String message = "Producto Actualizado";
         return new ResponseEntity<>(new ApiResponseDTO<>(true, message, productResponseDTO), HttpStatus.OK);
+    }
+
+    @DeleteMapping("/delete/{id}")
+    public ResponseEntity<?> deleteEntity(@PathVariable Long id) {
+        productService.delete(id);
+        String message = "Producto Eliminado exitosamente";
+        return new ResponseEntity<>(message, HttpStatus.OK);
     }
 
     @GetMapping("/getAllProducts")
@@ -61,6 +72,18 @@ public class ProductController {
         } catch (Exception e) {
             return new ResponseEntity<>(new ApiResponseDTO<>(false, "Error al reservar stock: " + e.getMessage(), null), HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    @PostMapping("/names")
+    public ResponseEntity<Map<Long, String>> getProductNames(@RequestBody Set<Long> productIds) {
+        Map<Long, String> productNames = productService.getProductNames(productIds);
+        return ResponseEntity.ok(productNames);
+    }
+
+    @PostMapping("/details")
+    public ResponseEntity<Map<Long, ProductDTO>> getProductDetails(@RequestBody Set<Long> productIds) {
+        Map<Long, ProductDTO> productDetails = productService.getProductDetails(productIds);
+        return ResponseEntity.ok(productDetails);
     }
 
 }

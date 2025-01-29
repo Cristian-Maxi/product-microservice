@@ -14,7 +14,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class ProductServiceImpl implements ProductService {
@@ -59,6 +61,14 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    public void delete(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró el ID del producto ingresado"));
+        productRepository.delete(product);
+    }
+
+
+    @Override
     public void reserveStock(Set<OrderItemRequestDTO> items) {
         List<String> unavailableProducts = new ArrayList<>();
 
@@ -78,4 +88,28 @@ public class ProductServiceImpl implements ProductService {
             throw new InsufficientStockException("Stock insuficiente", unavailableProducts);
         }
     }
+
+    @Override
+    public Map<Long, String> getProductNames(Set<Long> productIds) {
+        Map<Long, String> productNames = productRepository.findAllById(productIds)
+                .stream()
+                .collect(Collectors.toMap(Product::getId, Product::getName));
+        return productNames;
+    }
+
+    @Override
+    public Map<Long, ProductDTO> getProductDetails(Set<Long> productIds) {
+        List<Product> products = productRepository.findAllById(productIds);
+
+        return products.stream()
+                .collect(Collectors.toMap(
+                        Product::getId,
+                        product -> new ProductDTO(
+                                product.getName(),
+                                product.getDescription(),
+                                product.getPrice(),
+                                product.getStock()))
+                );
+    }
+
 }
