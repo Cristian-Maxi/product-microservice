@@ -1,5 +1,6 @@
 package microservice.product.exceptions;
 
+
 public class ApplicationException extends RuntimeException{
 
     private String campo;

@@ -1,6 +1,5 @@
 package microservice.product.controllers;
 
-import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import microservice.product.dtos.ApiResponseDTO;
 import microservice.product.dtos.OrderItemDTO.OrderItemRequestDTO;
@@ -13,9 +12,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/product")
@@ -25,27 +25,43 @@ public class ProductController {
     private ProductService productService;
 
     @PostMapping("/create")
-    public ResponseEntity<ProductResponseDTO> createProduct(@Valid @RequestBody ProductRequestDTO productRequestDTO) {
-        try{
+    public ResponseEntity<ProductResponseDTO> createProduct(@Valid @RequestBody ProductRequestDTO productRequestDTO,
+                                                            @RequestHeader("X-User-Authorities") String roles) {
+        if (!roles.contains("ADMIN")) {
+            throw new ApplicationException("Acceso denegado: Debes ser un ADMIN para crear un producto");
+        }
+        try {
             ProductResponseDTO productResponseDTO = productService.createProduct(productRequestDTO);
             return new ResponseEntity<>(productResponseDTO, HttpStatus.CREATED);
         } catch (ApplicationException e) {
-            throw new ApplicationException(" Ha ocurrido un error en el campo " + e.getCampo() + ", Descripcion: "+e.getMessage());
+            throw new ApplicationException("Ha ocurrido un error: " + e.getMessage());
         }
     }
 
+    @GetMapping("/perfil")
+    public ResponseEntity<?> getPerfil(@RequestHeader("X-User-Name") String username, @RequestHeader("X-User-Authorities") String authorities) {
+        List<String> roles = Arrays.asList(authorities.split(","));
+        return ResponseEntity.ok(Map.of("username", username, "roles", roles));
+    }
+
     @PutMapping("/update")
-    public ResponseEntity<ApiResponseDTO<ProductResponseDTO>> updateProduct(@Valid @RequestBody ProductUpdateDTO productUpdateDTO) {
+    public ResponseEntity<ApiResponseDTO<ProductResponseDTO>> updateProduct(@Valid @RequestBody ProductUpdateDTO productUpdateDTO,
+                                                                            @RequestHeader("X-User-Authorities") String roles) {
+        if (!roles.contains("ADMIN")) {
+            throw new ApplicationException("Acceso denegado: Debes ser un ADMIN para crear un producto");
+        }
         ProductResponseDTO productResponseDTO = productService.updateProduct(productUpdateDTO);
         String message = "Producto Actualizado";
         return new ResponseEntity<>(new ApiResponseDTO<>(true, message, productResponseDTO), HttpStatus.OK);
     }
 
     @DeleteMapping("/delete/{id}")
-    public ResponseEntity<?> deleteEntity(@PathVariable Long id) {
+    public ResponseEntity<?> deleteEntity(@PathVariable Long id, @RequestHeader("X-User-Authorities") String roles) {
+        if (!roles.contains("ADMIN")) {
+            throw new ApplicationException("Acceso denegado: Debes ser un ADMIN para eliminar un producto");
+        }
         productService.delete(id);
-        String message = "Producto Eliminado exitosamente";
-        return new ResponseEntity<>(message, HttpStatus.OK);
+        return new ResponseEntity<>("Producto Eliminado exitosamente", HttpStatus.OK);
     }
 
     @GetMapping("/getAllProducts")

@@ -1,6 +1,7 @@
 package microservice.product.services.impl;
 
 import jakarta.persistence.EntityNotFoundException;
+import microservice.product.config.RabbitMQConfig;
 import microservice.product.dtos.OrderItemDTO.OrderItemRequestDTO;
 import microservice.product.dtos.productDTO.*;
 import microservice.product.exceptions.ApplicationException;
@@ -9,6 +10,8 @@ import microservice.product.mappers.ProductMapper;
 import microservice.product.models.Product;
 import microservice.product.repositories.ProductRepository;
 import microservice.product.services.ProductService;
+import microservice.product.utils.ProductUpdatedEvent;
+import org.springframework.amqp.core.AmqpTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -27,8 +30,14 @@ public class ProductServiceImpl implements ProductService {
     @Autowired
     private ProductMapper productMapper;
 
+    @Autowired
+    private AmqpTemplate amqpTemplate;
+
     @Override
     public ProductResponseDTO createProduct(ProductRequestDTO productRequestDTO) {
+        if (productRepository.existsByName(productRequestDTO.name())) {
+            throw new ApplicationException("Ya existe un producto con el nombre: " + productRequestDTO.name());
+        }
         Product product = productMapper.toEntity(productRequestDTO);
         productRepository.save(product);
         return productMapper.toResponseDTO(product);
@@ -67,7 +76,6 @@ public class ProductServiceImpl implements ProductService {
         productRepository.delete(product);
     }
 
-
     @Override
     public void reserveStock(Set<OrderItemRequestDTO> items) {
         List<String> unavailableProducts = new ArrayList<>();
@@ -79,8 +87,17 @@ public class ProductServiceImpl implements ProductService {
             if (product.getStock() < item.quantity()) {
                 unavailableProducts.add("Producto: " + product.getName() + " (ID: " + item.productId() + ")");
             } else {
+                int oldStock = product.getStock();
                 product.setStock(product.getStock() - item.quantity());
                 productRepository.save(product);
+
+                ProductUpdatedEvent event = new ProductUpdatedEvent(
+                        product.getId(),
+                        product.getName(),
+                        oldStock,
+                        product.getStock()
+                );
+                amqpTemplate.convertAndSend(RabbitMQConfig.EXCHANGE, RabbitMQConfig.PRODUCT_ROUTING_KEY, event);
             }
         }
 
